@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Threading;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.XR;
 
 namespace Network
 {
@@ -27,17 +28,33 @@ namespace Network
         public bool log;
         public ReceiveEvent OnReceive;
 
+        public bool isHost = false;
+        public bool ForceClient = false;
+
         AndroidJavaObject multicastLock;
         Queue<IPAddress> received = new Queue<IPAddress>();
         List<UdpClient> clients = new List<UdpClient>();
 
         void Start()
         {
+            isHost = CheckIfHost();
             InitializeClients();
             StartCoroutine(ProcessReceived());
 
             if (Debug.isDebugBuild && log)
                 StartCoroutine(ProcessErrors());
+        }
+
+        bool CheckIfHost()
+        {
+            if (Debug.isDebugBuild)
+            {
+                return !XRDevice.isPresent || !ForceClient;
+            }
+            else
+            {
+                return !XRDevice.isPresent;
+            }
         }
 
         Queue<string> errors = new Queue<string>();
@@ -87,60 +104,68 @@ namespace Network
                 client.JoinMulticastGroup(destination, local);
                 clients.Add(client);
 
-                new Thread(() =>
+                if (!isHost)
                 {
-                    IPEndPoint from = new IPEndPoint(IPAddress.Any, port);
-
-                    while (true)
+                    new Thread(() =>
                     {
-                        try
+                        IPEndPoint from = new IPEndPoint(IPAddress.Any, port);
+                        Debug.Log("This app is the client.");
+
+                        while (true)
                         {
-                            client.Receive(ref from);
-                            if (!received.Contains(from.Address))
+                            try
                             {
-                                received.Enqueue(from.Address);
-                                errors.Enqueue("Received " + from.Address);
+                                client.Receive(ref from);
+                                if (!received.Contains(from.Address))
+                                {
+                                    received.Enqueue(from.Address);
+                                    errors.Enqueue("Received " + from.Address);
+                                }
                             }
-                        }
-                        catch (Exception e)
-                        {
-                            errors.Enqueue("Error receiving " + e.Message);
-                            //background thread, you can't use Debug.Log
-                        }
+                            catch (Exception e)
+                            {
+                                errors.Enqueue("Error receiving " + e.Message);
+                                //background thread, you can't use Debug.Log
+                            }
 
-                        Thread.Sleep(1000);
-                    }
-                })
-                {
-                    IsBackground = true,
-                    Priority = System.Threading.ThreadPriority.BelowNormal
-                }.Start();
-
-                new Thread(() =>
-                {
-                    var data = System.Text.Encoding.UTF8.GetBytes("HELLO");
-                    while (true)
+                            Thread.Sleep(1000);
+                        }
+                    })
                     {
-                        //You can add some condition here to broadcast only if it's needed, like app is running as server
-                        //{
-                        try
-                        {
-                            client.Send(data, data.Length, ip, port);
-                            errors.Enqueue("Sended");
-                        }
-                        catch (Exception e)
-                        {
-                            errors.Enqueue("Error sending " + e.Message);
-                            //background thread, you can't use Debug.Log
-                        }
-                        //}
-                        Thread.Sleep(1000);
-                    }
-                })
+                        IsBackground = true,
+                        Priority = System.Threading.ThreadPriority.BelowNormal
+                    }.Start();
+                }
+                
+                if (isHost)
                 {
-                    IsBackground = true,
-                    Priority = System.Threading.ThreadPriority.BelowNormal
-                }.Start();
+                    new Thread(() =>
+                    {
+                        var data = System.Text.Encoding.UTF8.GetBytes("HELLO");
+                        while (true)
+                        {
+                            //You can add some condition here to broadcast only if it's needed, like app is running as server
+                            Debug.Log("This app is the server.");
+                            //{
+                            try
+                            {
+                                client.Send(data, data.Length, ip, port);
+                                errors.Enqueue("Sended");
+                            }
+                            catch (Exception e)
+                            {
+                                errors.Enqueue("Error sending " + e.Message);
+                                //background thread, you can't use Debug.Log
+                            }
+                            //}
+                            Thread.Sleep(1000);
+                        }
+                    })
+                    {
+                        IsBackground = true,
+                        Priority = System.Threading.ThreadPriority.BelowNormal
+                    }.Start();
+                }
             }
         }
 
