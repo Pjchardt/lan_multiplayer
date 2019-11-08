@@ -15,6 +15,6 @@ EditorBuildSettings:
     path: Assets/Samples/Ping-Multiplay/Client/MultiplayPingClient.unity
     guid: 432dc0d0a057eaa4b990e03387a8143a
   - enabled: 1
-    path: Assets/Scenes/Asteroids.unity
-    guid: e1d9a388defac7049a631b0047b4278e
+    path: Assets/Scenes/MyTests.unity
+    guid: 36c06718df6dc704fbfd062755fa6226
   m_configObjects: {}
