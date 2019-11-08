@@ -28,6 +28,7 @@ namespace Network
         public bool log;
         public ReceiveEvent OnReceive;
 
+        [HideInInspector]
         public bool isHost = false;
         public bool ForceClient = false;
 
@@ -49,7 +50,7 @@ namespace Network
         {
             if (Debug.isDebugBuild)
             {
-                return !XRDevice.isPresent || !ForceClient;
+                return !XRDevice.isPresent && !ForceClient;
             }
             else
             {
@@ -104,46 +105,44 @@ namespace Network
                 client.JoinMulticastGroup(destination, local);
                 clients.Add(client);
 
-                if (!isHost)
+                new Thread(() =>
                 {
-                    new Thread(() =>
+                    IPEndPoint from = new IPEndPoint(IPAddress.Any, port);
+                    Debug.Log("This app is the client.");
+
+                    while (true)
                     {
-                        IPEndPoint from = new IPEndPoint(IPAddress.Any, port);
-                        Debug.Log("This app is the client.");
-
-                        while (true)
+                        try
                         {
-                            try
+                            client.Receive(ref from);
+                            if (!received.Contains(from.Address))
                             {
-                                client.Receive(ref from);
-                                if (!received.Contains(from.Address))
-                                {
-                                    received.Enqueue(from.Address);
-                                    errors.Enqueue("Received " + from.Address);
-                                }
+                                received.Enqueue(from.Address);
+                                errors.Enqueue("Received " + from.Address);
                             }
-                            catch (Exception e)
-                            {
-                                errors.Enqueue("Error receiving " + e.Message);
-                                //background thread, you can't use Debug.Log
-                            }
-
-                            Thread.Sleep(1000);
                         }
-                    })
-                    {
-                        IsBackground = true,
-                        Priority = System.Threading.ThreadPriority.BelowNormal
-                    }.Start();
-                }
-                
-                if (isHost)
-                {
-                    new Thread(() =>
-                    {
-                        var data = System.Text.Encoding.UTF8.GetBytes("HELLO");
-                        while (true)
+                        catch (Exception e)
                         {
+                            errors.Enqueue("Error receiving " + e.Message);
+                            //background thread, you can't use Debug.Log
+                        }
+
+                        Thread.Sleep(1000);
+                    }
+                })
+                {
+                    IsBackground = true,
+                    Priority = System.Threading.ThreadPriority.BelowNormal
+                }.Start();
+                
+                new Thread(() =>
+                {
+                    var data = System.Text.Encoding.UTF8.GetBytes("HELLO");
+                    while (true)
+                    {
+                        if (isHost)
+                        {
+
                             //You can add some condition here to broadcast only if it's needed, like app is running as server
                             Debug.Log("This app is the server.");
                             //{
@@ -160,12 +159,12 @@ namespace Network
                             //}
                             Thread.Sleep(1000);
                         }
-                    })
-                    {
-                        IsBackground = true,
-                        Priority = System.Threading.ThreadPriority.BelowNormal
-                    }.Start();
-                }
+                    }
+                })
+                {
+                    IsBackground = true,
+                    Priority = System.Threading.ThreadPriority.BelowNormal
+                }.Start();
             }
         }
 
