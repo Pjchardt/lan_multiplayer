@@ -171,7 +171,7 @@ namespace Network
         /// <summary>
         /// Clean up at end
         /// </summary>
-        private void OnDestroy()
+        private void OnDisable()
         {
             foreach (UdpClient client in clients)
                 client.Close();
