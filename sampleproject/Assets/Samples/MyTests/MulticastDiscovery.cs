@@ -28,7 +28,6 @@ namespace Network
         public bool log;
         public ReceiveEvent OnReceive;
 
-        [HideInInspector]
         public bool isHost = false;
         public bool ForceClient = false;
 
@@ -108,13 +107,12 @@ namespace Network
                 new Thread(() =>
                 {
                     IPEndPoint from = new IPEndPoint(IPAddress.Any, port);
-                    Debug.Log("This app is the client.");
 
                     while (true)
                     {
                         try
                         {
-                            client.Receive(ref from);
+                            byte[] data = client.Receive(ref from);
                             if (!received.Contains(from.Address))
                             {
                                 received.Enqueue(from.Address);
@@ -134,17 +132,15 @@ namespace Network
                     IsBackground = true,
                     Priority = System.Threading.ThreadPriority.BelowNormal
                 }.Start();
-                
+
                 new Thread(() =>
                 {
                     var data = System.Text.Encoding.UTF8.GetBytes("HELLO");
                     while (true)
                     {
-                        if (isHost)
-                        {
-
+                        //if (isHost)
+                        //{
                             //You can add some condition here to broadcast only if it's needed, like app is running as server
-                            Debug.Log("This app is the server.");
                             //{
                             try
                             {
@@ -158,7 +154,7 @@ namespace Network
                             }
                             //}
                             Thread.Sleep(1000);
-                        }
+                        //}
                     }
                 })
                 {

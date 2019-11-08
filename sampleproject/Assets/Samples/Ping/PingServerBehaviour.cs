@@ -83,6 +83,7 @@ public class PingServerBehaviour : MonoBehaviour
                 var readerCtx = default(DataStreamReader.Context);
                 int id = strm.ReadInt(ref readerCtx);
                 // Create a temporary DataStreamWriter to keep our serialized pong message
+                Debug.Log("Hey!");
                 var pongData = new DataStreamWriter(4, Allocator.Temp);
                 pongData.Write(id);
                 // Send the pong message with the same id as the ping
