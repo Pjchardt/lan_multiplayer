@@ -20,8 +20,8 @@ public class BuildPostprocessor
             dllPath = pathToBuiltProject + "/Contents/Resources/Data/Managed/";
         else if (target == BuildTarget.StandaloneWindows)
             dllPath = pathToBuiltProject.Replace(".exe", "_Data") + "/Managed/";
-        else
-            throw new Exception("Fill in platform path structure...");
+        //else
+        //    throw new Exception("Fill in platform path structure...");
 
         // Server takes precedence, so you'll always get a server build if Server Build (=enableHeadlessMode) is checked
         if (EditorUserBuildSettings.enableHeadlessMode)

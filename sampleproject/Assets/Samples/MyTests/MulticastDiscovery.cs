@@ -10,14 +10,30 @@ using UnityEngine.XR;
 
 namespace Network
 {
+    public class ReceiveData
+    {
+        public ReceiveData (IPAddress i, ushort s, bool b)
+        {
+            Ip = i;
+            Port = s;
+            IsServer = b;
+        }
+
+        public IPAddress Ip;
+        public ushort Port;
+        public bool IsServer;
+    }
+
     /// <summary>
     /// UDP Multicast service
     /// Developed and tested on Windows and Android platform
     /// </summary>
     public class MulticastDiscovery : MonoBehaviour
     {
-        [Serializable]
-        public class ReceiveEvent : UnityEvent<IPAddress> { }
+        public static MulticastDiscovery Instance;
+
+        public delegate void ReceiveEvent(ReceiveData data);
+        public event ReceiveEvent OnReceiveEvent;
 
         /// <summary>
         /// I choosed this IP based on wiki, where is marked as "Simple Service Discovery Protocol address"
@@ -26,14 +42,19 @@ namespace Network
         public string ip = "239.255.255.250";
         public int port;
         public bool log;
-        public ReceiveEvent OnReceive;
 
+        bool keepThreads = true;
         public bool isHost = false;
         public bool ForceClient = false;
 
         AndroidJavaObject multicastLock;
-        Queue<IPAddress> received = new Queue<IPAddress>();
+        Queue<ReceiveData> received = new Queue<ReceiveData>();
         List<UdpClient> clients = new List<UdpClient>();
+
+        private void Awake()
+        {
+            Instance = this;
+        }
 
         void Start()
         {
@@ -64,7 +85,9 @@ namespace Network
             while (true)
             {
                 yield return new WaitUntil(() => errors.Count > 0);
-                Debug.Log(errors.Dequeue());
+                string s = errors.Dequeue();
+                Debug.Log(s);
+                DebugManager.Instance.Print(s);
             }
         }
 
@@ -76,7 +99,7 @@ namespace Network
             while (true)
             {
                 yield return new WaitUntil(() => received.Count > 0);
-                OnReceive?.Invoke(received.Dequeue());
+                OnReceiveEvent?.Invoke(received.Dequeue());
             }
         }
 
@@ -100,7 +123,22 @@ namespace Network
                 client.ExclusiveAddressUse = false;
                 client.MulticastLoopback = false;
                 client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                client.Client.Bind(new IPEndPoint(local, port));
+
+                //On linux we bind to 0.0.0.0 instead of the multicast port
+                if (Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer)
+                {
+                    client.Client.Bind(new IPEndPoint(local, port));
+                }
+                else
+                {
+                    if (!IPAddress.TryParse("0.0.0.0", out IPAddress ip_linux))
+                    {
+                        DebugManager.Instance.Print("Wrong ip format for linux");
+                        return;
+                    }
+                    client.Client.Bind(new IPEndPoint(ip_linux, port));
+                }
+
                 client.JoinMulticastGroup(destination, local);
                 clients.Add(client);
 
@@ -108,15 +146,16 @@ namespace Network
                 {
                     IPEndPoint from = new IPEndPoint(IPAddress.Any, port);
 
-                    while (true)
+                    while (keepThreads)
                     {
                         try
                         {
-                            byte[] data = client.Receive(ref from);
-                            if (!received.Contains(from.Address))
+                            byte[] b = client.Receive(ref from);
+                            ReceiveData d = new ReceiveData(from.Address, (ushort)port, false);
+                            if (!received.Contains(d))
                             {
-                                received.Enqueue(from.Address);
-                                errors.Enqueue("Received " + from.Address);
+                                received.Enqueue(d);                              
+                                //errors.Enqueue("Received " + from.Address);
                             }
                         }
                         catch (Exception e)
@@ -135,16 +174,17 @@ namespace Network
 
                 new Thread(() =>
                 {
-                    var data = System.Text.Encoding.UTF8.GetBytes("HELLO");
-                    while (true)
+                    IPEndPoint to = new IPEndPoint(destination, port);
+                    var data = System.Text.Encoding.UTF8.GetBytes("I am the server!");
+
+                    while (keepThreads)
                     {
-                        //if (isHost)
-                        //{
-                            //You can add some condition here to broadcast only if it's needed, like app is running as server
-                            //{
+                        //You can add some condition here to broadcast only if it's needed, like app is running as server
+                        if (isHost)
+                        {                          
                             try
                             {
-                                client.Send(data, data.Length, ip, port);
+                                client.Send(data, data.Length, to);
                                 errors.Enqueue("Sended");
                             }
                             catch (Exception e)
@@ -152,9 +192,8 @@ namespace Network
                                 errors.Enqueue("Error sending " + e.Message);
                                 //background thread, you can't use Debug.Log
                             }
-                            //}
                             Thread.Sleep(1000);
-                        //}
+                        }
                     }
                 })
                 {
@@ -173,6 +212,7 @@ namespace Network
                 client.Close();
 
             multicastLock?.Call("release");
+            keepThreads = false;
         }
 
         /// <summary>
