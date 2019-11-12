@@ -9,7 +9,7 @@ public class DebugManager_Canvas : MonoBehaviour
     public InputField CommandLine;
     public Text PrintOutput;
 
-    private void Start()
+    private void Awake()
     {
         InputPanel.SetActive(false);
         PrintOutput.text = "";

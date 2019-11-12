@@ -70,13 +70,13 @@ namespace Network
 
         #region Event Callbacks
 
-        private void InitClient(ReceiveData d)
+        private void InitClient(IPAddress ip)
         {
             // Create a NetworkDriver for the client. We could bind to a specific address but in this case we rely on the
             // implicit bind since we do not need to bing to anything special
             m_ClientDriver = new UdpNetworkDriver(new INetworkParameter[0]);
-            Debug.Log("Server address: " + d.Ip.ToString());
-            NetworkEndPoint ServerEndPoint = NetworkEndPoint.Parse(d.Ip.ToString(), d.Port);
+            Debug.Log("Server address: " + ip.ToString());
+            NetworkEndPoint ServerEndPoint = NetworkEndPoint.Parse(ip.ToString(), 9000);
 
             m_clientToServerConnection = m_ClientDriver.Connect(PingClientUIBehaviour.ServerEndPoint);
         }

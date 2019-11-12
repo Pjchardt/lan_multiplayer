@@ -32,7 +32,7 @@ namespace Network
     {
         public static MulticastDiscovery Instance;
 
-        public delegate void ReceiveEvent(ReceiveData data);
+        public delegate void ReceiveEvent(IPAddress ip);
         public event ReceiveEvent OnReceiveEvent;
 
         /// <summary>
@@ -48,7 +48,7 @@ namespace Network
         public bool ForceClient = false;
 
         AndroidJavaObject multicastLock;
-        Queue<ReceiveData> received = new Queue<ReceiveData>();
+        Queue<IPAddress> received = new Queue<IPAddress>();
         List<UdpClient> clients = new List<UdpClient>();
 
         private void Awake()
@@ -59,6 +59,10 @@ namespace Network
         void Start()
         {
             isHost = CheckIfHost();
+            //if (Application.platform == RuntimePlatform.Android)
+            //{
+            //    MulticastLock();
+            //}
             InitializeClients();
             StartCoroutine(ProcessReceived());
 
@@ -120,6 +124,8 @@ namespace Network
                     continue;
 
                 var client = new UdpClient(AddressFamily.InterNetwork);
+                //IPAddress multicastIpAddress = IPAddress.Parse("239.255.255.255");
+                //client.JoinMulticastGroup(multicastIpAddress);
                 client.ExclusiveAddressUse = false;
                 client.MulticastLoopback = false;
                 client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -128,6 +134,7 @@ namespace Network
                 if (Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer)
                 {
                     client.Client.Bind(new IPEndPoint(local, port));
+                    DebugManager.Instance.Print("Bind to: " + local);
                 }
                 else
                 {
@@ -137,6 +144,7 @@ namespace Network
                         return;
                     }
                     client.Client.Bind(new IPEndPoint(ip_linux, port));
+                    DebugManager.Instance.Print("Bind to: " + ip_linux);
                 }
 
                 client.JoinMulticastGroup(destination, local);
@@ -151,11 +159,11 @@ namespace Network
                         try
                         {
                             byte[] b = client.Receive(ref from);
-                            ReceiveData d = new ReceiveData(from.Address, (ushort)port, false);
-                            if (!received.Contains(d))
+                            //ReceiveData d = new ReceiveData(from.Address, (ushort)port, false);
+                            if (!received.Contains(from.Address))
                             {
-                                received.Enqueue(d);                              
-                                //errors.Enqueue("Received " + from.Address);
+                                received.Enqueue(from.Address);                              
+                                errors.Enqueue("Received " + from.Address);
                             }
                         }
                         catch (Exception e)
@@ -175,13 +183,13 @@ namespace Network
                 new Thread(() =>
                 {
                     IPEndPoint to = new IPEndPoint(destination, port);
-                    var data = System.Text.Encoding.UTF8.GetBytes("I am the server!");
+                    var data = System.Text.Encoding.UTF8.GetBytes("HELLO");
 
                     while (keepThreads)
                     {
                         //You can add some condition here to broadcast only if it's needed, like app is running as server
-                        if (isHost)
-                        {                          
+                        //if (isHost)
+                        //{                          
                             try
                             {
                                 client.Send(data, data.Length, to);
@@ -193,7 +201,7 @@ namespace Network
                                 //background thread, you can't use Debug.Log
                             }
                             Thread.Sleep(1000);
-                        }
+                        //}
                     }
                 })
                 {
