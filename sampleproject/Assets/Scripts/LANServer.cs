@@ -16,6 +16,7 @@ namespace Network
         private NativeList<NetworkConnection> m_connections;
 
         private JobHandle m_updateHandle;
+        private int messagesSent;
 
         #region Unity Methods
 
@@ -39,6 +40,20 @@ namespace Network
             m_updateHandle.Complete();
             m_ServerDriver.Dispose();
             m_connections.Dispose();
+        }
+
+        private void Update()
+        {
+            //Test sending message
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                for (int i = 0; i < m_connections.Length; ++i)
+                {
+                    SendMessage(m_connections[i], "Server message: " + messagesSent);
+                    messagesSent++;
+                }
+            }
+            
         }
 
         void FixedUpdate()
@@ -95,5 +110,15 @@ namespace Network
         }
 
         #endregion
+
+        void SendMessage(NetworkConnection conn, string message)
+        {
+            //For testing send data every frame to clients
+            var data = Encoding.UTF8.GetBytes(message);
+            // Create byte data stream to store text
+            var messagePayload = new DataStreamWriter(data.Length, Allocator.Temp);
+            messagePayload.Write(data);
+            m_ServerDriver.Send(NetworkPipeline.Null, conn, messagePayload);
+        }
     }
 }

@@ -25,9 +25,11 @@ namespace Network
 
         void OnDestroy()
         {
-            m_ClientDriver.Dispose();
+            if (m_ClientDriver.IsCreated)
+            {
+                m_ClientDriver.Dispose();
+            }
         }
-
 
         void FixedUpdate()
         {
@@ -51,6 +53,11 @@ namespace Network
                 else if (cmd == NetworkEvent.Type.Data)
                 {
                     //Process data sent from server
+                    // A DataStreamReader.Context is required to keep track of current read position since DataStreamReader is immutable
+                    var readerCtx = default(DataStreamReader.Context);
+                    byte[] temp = strm.ReadBytesAsArray(ref readerCtx, strm.Length);
+                    string text = System.Text.Encoding.UTF8.GetString(temp, 0, temp.Length);
+                    DebugManager.Instance.Print("Client recieved: " + text);
                 }
                 else if (cmd == NetworkEvent.Type.Disconnect)
                 {
@@ -70,15 +77,20 @@ namespace Network
 
         #region Event Callbacks
 
-        private void InitClient(IPAddress ip)
+        private void InitClient(ReceiveData data)
         {
+            if (data.IsServer || m_clientToServerConnection.IsCreated)
+            {
+                return;
+            }
             // Create a NetworkDriver for the client. We could bind to a specific address but in this case we rely on the
             // implicit bind since we do not need to bing to anything special
             m_ClientDriver = new UdpNetworkDriver(new INetworkParameter[0]);
-            Debug.Log("Server address: " + ip.ToString());
-            NetworkEndPoint ServerEndPoint = NetworkEndPoint.Parse(ip.ToString(), 9000);
+            DebugManager.Instance.Print("Server address: " + data.Ip.ToString());
+            NetworkEndPoint ServerEndPoint = NetworkEndPoint.Parse(data.Ip.ToString(), 9100);
 
-            m_clientToServerConnection = m_ClientDriver.Connect(PingClientUIBehaviour.ServerEndPoint);
+            m_clientToServerConnection = m_ClientDriver.Connect(ServerEndPoint);
+            DebugManager.Instance.Print("Connections status: " + m_clientToServerConnection.IsCreated);
         }
 
         #endregion

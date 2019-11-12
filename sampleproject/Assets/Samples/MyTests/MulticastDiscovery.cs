@@ -32,7 +32,7 @@ namespace Network
     {
         public static MulticastDiscovery Instance;
 
-        public delegate void ReceiveEvent(IPAddress ip);
+        public delegate void ReceiveEvent(ReceiveData data);
         public event ReceiveEvent OnReceiveEvent;
 
         /// <summary>
@@ -48,7 +48,7 @@ namespace Network
         public bool ForceClient = false;
 
         AndroidJavaObject multicastLock;
-        Queue<IPAddress> received = new Queue<IPAddress>();
+        Queue<ReceiveData> received = new Queue<ReceiveData>();
         List<UdpClient> clients = new List<UdpClient>();
 
         private void Awake()
@@ -59,6 +59,7 @@ namespace Network
         void Start()
         {
             isHost = CheckIfHost();
+            DebugManager.Instance.Print("Is Host: " + isHost);
             //if (Application.platform == RuntimePlatform.Android)
             //{
             //    MulticastLock();
@@ -72,14 +73,7 @@ namespace Network
 
         bool CheckIfHost()
         {
-            if (Debug.isDebugBuild)
-            {
-                return !XRDevice.isPresent && !ForceClient;
-            }
-            else
-            {
-                return !XRDevice.isPresent;
-            }
+            return !XRDevice.isPresent && Application.platform != RuntimePlatform.Android && !ForceClient;
         }
 
         Queue<string> errors = new Queue<string>();
@@ -159,10 +153,10 @@ namespace Network
                         try
                         {
                             byte[] b = client.Receive(ref from);
-                            //ReceiveData d = new ReceiveData(from.Address, (ushort)port, false);
-                            if (!received.Contains(from.Address))
+                            ReceiveData d = new ReceiveData(from.Address, (ushort)port, isHost);
+                            if (!received.Contains(d))
                             {
-                                received.Enqueue(from.Address);                              
+                                received.Enqueue(d);                              
                                 errors.Enqueue("Received " + from.Address);
                             }
                         }
